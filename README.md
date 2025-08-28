@@ -668,4 +668,5 @@ For questions or issues:
 
 ---
 
-**Built with ❤️ using Spring Boot, PostgreSQL, and Redis**
+**Built with ❤️ using Spring Boot, PostgreSQL, and Redis**#   r o l e s - a n d - p e r m i s s i o n s -  
+ 
