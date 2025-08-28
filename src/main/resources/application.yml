@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: roles-permissions-service
+  
+  datasource:
+    url: jdbc:postgresql://nucleus-staging.c6j42qq2krlk.us-east-1.rds.amazonaws.com:5432/postgres
+    username: postgres
+    password: nucleus-staging
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    defer-datasource-initialization: false
+      
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000 # 5 minutes
+      cache-null-values: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    com.algobrewery.auth: ${LOG_LEVEL:INFO}
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Custom application properties
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:your-secret-key-here}
+      expiration: ${JWT_EXPIRATION:86400000} # 24 hours
+  cache:
+    ttl:
+      roles: 300000 # 5 minutes
+      permissions: 60000 # 1 minute
+      user-roles: 300000 # 5 minutes
