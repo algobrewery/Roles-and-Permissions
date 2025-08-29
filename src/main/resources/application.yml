@@ -3,14 +3,20 @@ spring:
     name: roles-permissions-service
   
   datasource:
-    url: jdbc:postgresql://nucleus-staging.c6j42qq2krlk.us-east-1.rds.amazonaws.com:5432/postgres
+    url: jdbc:postgresql://nucleus-staging.c6j42qq2krlk.us-east-1.rds.amazonaws.com:5432/postgres?sslmode=require&connectTimeout=30&socketTimeout=30
     username: postgres
     password: nucleus-staging
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      maximum-pool-size: 10
+      minimum-idle: 5
     
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create
     show-sql: false
     properties:
       hibernate:

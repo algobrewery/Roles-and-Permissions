@@ -29,6 +29,7 @@ dependencies {
     
     // Database
     implementation 'org.postgresql:postgresql:42.7.1'
+    implementation 'com.h2database:h2'
     
     // Redis
     implementation 'redis.clients:jedis:4.4.6'

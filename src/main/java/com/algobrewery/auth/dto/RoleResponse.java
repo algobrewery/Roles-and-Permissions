@@ -2,6 +2,7 @@ package com.algobrewery.auth.dto;
 
 import com.algobrewery.auth.model.RoleManagementType;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -30,7 +31,7 @@ public class RoleResponse {
     private RoleManagementType roleManagementType;
 
     private String description;
-    private String policy;
+    private JsonNode policy;
 
     @JsonProperty("created_at")
     private Instant createdAt;

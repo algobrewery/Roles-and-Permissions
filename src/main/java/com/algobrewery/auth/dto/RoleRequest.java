@@ -2,6 +2,7 @@ package com.algobrewery.auth.dto;
 
 import com.algobrewery.auth.model.RoleManagementType;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -31,7 +32,7 @@ public class RoleRequest {
     @JsonProperty("role_management_type")
     private RoleManagementType roleManagementType;
 
-    @NotBlank(message = "Policy is required")
-    private String policy;
+    @NotNull(message = "Policy is required")
+    private JsonNode policy;
 
 }

@@ -11,7 +11,7 @@ The Roles & Permissions Service is a centralized authorization system that provi
 - **Multi-Tenant Support** - Organization-scoped roles and permissions
 - **Policy-Based Authorization** - JSON-based policy definitions for flexible access control
 - **Caching Layer** - Redis-powered caching for high-performance permission checks
-- **RESTful API** - Easy integration with other microservices
+- **RESTful API** - Easy integration with other microservices and Postman testing and Postman testing
 
 ### Key Concepts
 
@@ -24,17 +24,22 @@ The Roles & Permissions Service is a centralized authorization system that provi
 - **Feature Permissions**: Control access to execute specific features (create_task, generate_reports, etc.)
 
 #### **Policy Structure**
+The service expects policies in this specific format:
 ```json
 {
+  "version": "1.0",
   "data": {
-    "view": ["task", "user_basic_info", "client"],
-    "edit": ["task"]
+    "read": ["users", "roles", "tasks"],
+    "write": ["tasks"],
+    "delete": ["tasks"]
   },
   "features": {
     "execute": ["create_task", "assign_task", "generate_reports"]
   }
 }
 ```
+
+**Important:** The policy structure must use `data` and/or `features` objects with action keys (`read`, `write`, `delete`, `execute`) containing arrays of resources. The `statements` array format is NOT supported.
 
 ## 🏗️ Architecture
 
@@ -207,8 +212,17 @@ curl -X POST "http://localhost:8080/role" \
     "role_name": "Project Manager",
     "description": "Can manage projects and tasks within organization",
     "organization_uuid": "test-org-456",
-    "role_management_type": "ORGANIZATION_MANAGED",
-    "policy": "{\"data\":{\"view\":[\"task\",\"user_basic_info\",\"client\"],\"edit\":[\"task\"]},\"features\":{\"execute\":[\"create_task\",\"assign_task\"]}}"
+    "role_management_type": "CUSTOMER_MANAGED",
+    "policy": {
+      "version": "1.0",
+      "data": {
+        "read": ["users", "tasks", "clients"],
+        "write": ["tasks"]
+      },
+      "features": {
+        "execute": ["create_task", "assign_task"]
+      }
+    }
   }'
 ```
 
@@ -285,8 +299,17 @@ curl -X PUT "http://localhost:8080/role/660e8400-e29b-41d4-a716-446655440000" \
     "role_name": "Senior Project Manager",
     "description": "Enhanced project management with client access",
     "organization_uuid": "test-org-456",
-    "role_management_type": "ORGANIZATION_MANAGED",
-    "policy": "{\"data\":{\"view\":[\"task\",\"user_basic_info\",\"client\",\"organization\"],\"edit\":[\"task\",\"client\"]},\"features\":{\"execute\":[\"create_task\",\"assign_task\",\"generate_reports\"]}}"
+    "role_management_type": "CUSTOMER_MANAGED",
+    "policy": {
+      "version": "1.0",
+      "data": {
+        "read": ["users", "tasks", "clients", "organization"],
+        "write": ["tasks", "clients"]
+      },
+      "features": {
+        "execute": ["create_task", "assign_task", "generate_reports"]
+      }
+    }
   }'
 ```
 
@@ -297,8 +320,17 @@ curl -X PUT "http://localhost:8080/role/660e8400-e29b-41d4-a716-446655440000" \
   "role_name": "Senior Project Manager",
   "description": "Enhanced project management with client access",
   "organization_uuid": "test-org-456",
-  "role_management_type": "ORGANIZATION_MANAGED",
-  "policy": "{\"data\":{\"view\":[\"task\",\"user_basic_info\",\"client\",\"organization\"],\"edit\":[\"task\",\"client\"]},\"features\":{\"execute\":[\"create_task\",\"assign_task\",\"generate_reports\"]}}",
+  "role_management_type": "CUSTOMER_MANAGED",
+  "policy": {
+    "version": "1.0",
+    "data": {
+      "read": ["users", "tasks", "clients", "organization"],
+      "write": ["tasks", "clients"]
+    },
+    "features": {
+      "execute": ["create_task", "assign_task", "generate_reports"]
+    }
+  },
   "updated_at": "2025-08-28T17:15:00Z"
 }
 ```
@@ -394,16 +426,16 @@ curl -X DELETE "http://localhost:8080/user/test-user-123/roles/660e8400-e29b-41d
 #### Primary Permission Check
 **POST** `/permission/check`
 
-**Request (Should PASS - Task View):**
+**Request (Should PASS - Task Read):**
 ```bash
 curl -X POST "http://localhost:8080/permission/check" \
   -H "Content-Type: application/json" \
   -d '{
     "user_uuid": "test-user-123",
     "organization_uuid": "test-org-456",
-    "resource": "task",
-    "action": "view",
-    "resource_id": "*"
+    "resource": "tasks",
+    "action": "read",
+    "resource_id": "specific-task-id"
   }'
 ```
 
@@ -417,16 +449,16 @@ curl -X POST "http://localhost:8080/permission/check" \
 }
 ```
 
-**Request (Should FAIL - Sensitive Data):**
+**Request (Should FAIL - Delete Permission):**
 ```bash
 curl -X POST "http://localhost:8080/permission/check" \
   -H "Content-Type: application/json" \
   -d '{
     "user_uuid": "test-user-123",
     "organization_uuid": "test-org-456",
-    "resource": "user_sensitive_info",
-    "action": "view",
-    "resource_id": "*"
+    "resource": "users",
+    "action": "delete",
+    "resource_id": "specific-user-id"
   }'
 ```
 
@@ -450,8 +482,8 @@ curl -X POST "http://localhost:8080/has-permission" \
   -d '{
     "user_uuid": "test-user-123",
     "organization_uuid": "test-org-456",
-    "resource": "user_basic_info",
-    "action": "view"
+    "resource": "users",
+    "action": "read"
   }'
 ```
 
@@ -491,36 +523,182 @@ curl -X POST "http://localhost:8080/check-permission" \
 
 ---
 
-## 🧪 Testing
+## 📋 Postman Collection Setup
 
-### Automated Testing Script
-Run the complete test suite:
-```bash
-./test-api.sh
+### Environment Variables
+Create a Postman environment with these variables:
+```json
+{
+  "baseUrl": "http://localhost:8080",
+  "userUuid": "test-user-123",
+  "adminUuid": "admin-user-456",
+  "organizationUuid": "test-org-789",
+  "roleUuid": "{{$guid}}",
+  "userRoleUuid": "{{$guid}}"
+}
 ```
 
-### Manual Testing Sequence
-1. **Health Check** - Verify service is running
-2. **Get System Roles** - Confirm migrations worked
-3. **Create Custom Role** - Test role creation
-4. **Assign Role to User** - Test user-role assignment
-5. **Test Permissions** - Verify access control works
-6. **Update Role** - Test role modifications
-7. **Cleanup** - Remove test data
+### Pre-request Scripts
+Add this to your collection's pre-request script:
+```javascript
+// Generate UUIDs for testing
+if (!pm.environment.get("testRoleUuid")) {
+    pm.environment.set("testRoleUuid", pm.variables.replaceIn('{{$guid}}'));
+}
+if (!pm.environment.get("testUserRoleUuid")) {
+    pm.environment.set("testUserRoleUuid", pm.variables.replaceIn('{{$guid}}'));
+}
+```
+
+### Test Scripts
+Add this to your collection's test script:
+```javascript
+// Basic response validation
+pm.test("Status code is successful", function () {
+    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);
+});
+
+pm.test("Response time is less than 2000ms", function () {
+    pm.expect(pm.response.responseTime).to.be.below(2000);
+});
+
+// Save response data for chaining requests
+if (pm.response.json() && pm.response.json().role_uuid) {
+    pm.environment.set("createdRoleUuid", pm.response.json().role_uuid);
+}
+if (pm.response.json() && pm.response.json().user_role_uuid) {
+    pm.environment.set("createdUserRoleUuid", pm.response.json().user_role_uuid);
+}
+```
+
+## 🧪 Testing
+
+### Complete Testing Workflow for Postman
+
+#### 1. Health & Setup Tests
+```
+GET {{baseUrl}}/actuator/health
+```
+
+#### 2. System Roles Verification
+```
+GET {{baseUrl}}/role/system-managed
+```
+
+#### 3. Create Custom Role
+```
+POST {{baseUrl}}/role
+Headers: x-app-user-uuid: {{adminUuid}}
+Body:
+{
+  "role_name": "Test Manager",
+  "description": "Test role for Postman testing",
+  "organization_uuid": "{{organizationUuid}}",
+  "role_management_type": "CUSTOMER_MANAGED",
+  "policy": {
+    "version": "1.0",
+    "data": {
+      "read": ["users", "tasks", "clients"],
+      "write": ["tasks"],
+      "delete": ["tasks"]
+    },
+    "features": {
+      "execute": ["create_task", "assign_task"]
+    }
+  }
+}
+```
+
+#### 4. Assign Role to User
+```
+POST {{baseUrl}}/user/{{userUuid}}/roles
+Headers: x-app-user-uuid: {{adminUuid}}
+Body:
+{
+  "role_uuid": "{{createdRoleUuid}}",
+  "organization_uuid": "{{organizationUuid}}"
+}
+```
+
+#### 5. Test Permission Checks
+```
+POST {{baseUrl}}/permission/check
+Body:
+{
+  "user_uuid": "{{userUuid}}",
+  "organization_uuid": "{{organizationUuid}}",
+  "resource": "tasks",
+  "action": "read"
+}
+```
+
+#### 6. Cleanup (Optional)
+```
+DELETE {{baseUrl}}/user/{{userUuid}}/roles/{{createdRoleUuid}}?organization_uuid={{organizationUuid}}
+DELETE {{baseUrl}}/role/{{createdRoleUuid}}
+```
+
+### Policy Examples for Testing
+
+#### Admin Policy (Full Access)
+```json
+{
+  "version": "1.0",
+  "data": {
+    "read": ["*"],
+    "write": ["*"],
+    "delete": ["*"]
+  },
+  "features": {
+    "execute": ["*"]
+  }
+}
+```
+
+#### Manager Policy (Limited Access)
+```json
+{
+  "version": "1.0",
+  "data": {
+    "read": ["users", "tasks", "clients", "organization"],
+    "write": ["tasks", "clients"],
+    "delete": ["tasks"]
+  },
+  "features": {
+    "execute": ["create_task", "assign_task", "generate_reports"]
+  }
+}
+```
+
+#### Read-Only Policy
+```json
+{
+  "version": "1.0",
+  "data": {
+    "read": ["users", "tasks", "clients"]
+  },
+  "features": {
+    "execute": []
+  }
+}
+```
 
 ## 📊 Available Resources & Actions
 
-### Data Resources
-- `task` - Task management data
-- `user_basic_info` - Basic user profile information
-- `user_sensitive_info` - Sensitive user data (PII, etc.)
-- `client` - Client/customer information
+### Data Resources (for policy `data` section)
+- `users` - User profile information
+- `tasks` - Task management data
+- `clients` - Client/customer information
 - `organization` - Organization settings and data
+- `roles` - Role management data
+- `permissions` - Permission data
+- `*` - Wildcard for all resources
 
-### Actions
-- `view` - Read access to resources
-- `edit` - Modify access to resources
-- `execute` - Execute specific features/operations
+### Actions (for policy `data` section)
+- `read` - Read access to resources
+- `write` - Modify access to resources
+- `delete` - Delete access to resources
+- `*` - Wildcard for all actions
 
 ### Feature Resources
 - `create_task` - Create new tasks
@@ -658,15 +836,60 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-## 📞 Support
+## 🚀 Quick Postman Setup
 
-For questions or issues:
-- Create an issue in the repository
-- Check the logs for detailed error messages
-- Verify database and Redis connectivity
-- Ensure proper environment configuration
+### Essential Endpoints Summary
 
----
+| Method | Endpoint | Purpose | Headers Required |
+|--------|----------|---------|------------------|
+| GET | `/actuator/health` | Health check | - |
+| GET | `/role/system-managed` | Get system roles | - |
+| POST | `/role` | Create custom role | `x-app-user-uuid` |
+| GET | `/role/{roleUuid}` | Get role by ID | - |
+| GET | `/role/organization/{orgUuid}` | Get org roles | - |
+| PUT | `/role/{roleUuid}` | Update role | - |
+| DELETE | `/role/{roleUuid}` | Delete role | - |
+| POST | `/user/{userUuid}/roles` | Assign role | `x-app-user-uuid` |
+| GET | `/user/{userUuid}/roles` | Get user roles | - |
+| DELETE | `/user/{userUuid}/roles/{roleUuid}` | Remove role | - |
+| POST | `/permission/check` | Check permission | - |
+| POST | `/has-permission` | Legacy permission check | - |
+| POST | `/check-permission` | Endpoint-based check | - |
 
-**Built with ❤️ using Spring Boot, PostgreSQL, and Redis**#   r o l e s - a n d - p e r m i s s i o n s -  
- 
+### Postman Environment Variables
+```json
+{
+  "baseUrl": "http://localhost:8080",
+  "userUuid": "test-user-123",
+  "adminUuid": "admin-user-456",
+  "organizationUuid": "test-org-789",
+  "roleUuid": "{{$guid}}",
+  "userRoleUuid": "{{$guid}}"
+}
+```
+
+### Common Test Scenarios
+
+1. **Full Admin Test**: Create role with `"*"` permissions
+2. **Limited Access Test**: Create role with specific resource permissions
+3. **Permission Denial Test**: Test access to unauthorized resources
+4. **Role Assignment Test**: Assign and verify role assignments
+5. **Policy Validation Test**: Test different policy formats
+
+### Troubleshooting Common Issues
+
+- **Permission always returns false**: 
+  - Check policy format uses `data`/`features` structure (not `statements`)
+  - Verify user has assigned roles in the organization
+  - Ensure action matches policy keys (`read`, `write`, `delete`, `execute`)
+
+- **Role creation fails**: 
+  - Check `role_management_type` is `CUSTOMER_MANAGED` or `SYSTEM_MANAGED`
+  - Ensure policy is valid JSON object (not string)
+  - Verify `x-app-user-uuid` header is present
+
+- **Database errors**: 
+  - Run migrations: `./gradlew flywayMigrate`
+  - Check database connection in `application.yml`
+  - Verify PostgreSQL is running
+

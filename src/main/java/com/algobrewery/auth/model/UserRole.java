@@ -27,19 +27,19 @@ public class UserRole {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "user_role_uuid", nullable = false, length = 36)
+    @Column(name = "user_role_uuid", nullable = false, length = 50)
     private UUID userRoleUuid;
 
     @NotBlank
-    @Column(name = "user_uuid", nullable = false, length = 36)
+    @Column(name = "user_uuid", nullable = false, length = 50)
     private String userUuid;
 
     @NotBlank
-    @Column(name = "role_uuid", nullable = false, length = 36)
+    @Column(name = "role_uuid", nullable = false, length = 50)
     private String roleUuid;
 
     @NotBlank
-    @Column(name = "organization_uuid", nullable = false, length = 36)
+    @Column(name = "organization_uuid", nullable = false, length = 50)
     private String organizationUuid;
 
     @CreatedDate
@@ -47,7 +47,7 @@ public class UserRole {
     private Instant createdAt;
 
     @NotBlank
-    @Column(name = "created_by", nullable = false, length = 36)
+    @Column(name = "created_by", nullable = false, length = 50)
     private String createdBy;
 
     // Custom constructor for UserRoleService

@@ -4,6 +4,8 @@ import com.algobrewery.auth.dto.RoleRequest;
 import com.algobrewery.auth.dto.RoleResponse;
 import com.algobrewery.auth.model.RoleManagementType;
 import com.algobrewery.auth.repository.RoleRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,16 +29,20 @@ class RoleServiceTest {
     @Autowired
     private RoleRepository roleRepository;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     private RoleRequest validRoleRequest;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        JsonNode policyNode = objectMapper.readTree("{\"data\":{\"view\":[\"task\"],\"edit\":[\"task\"]},\"features\":{\"execute\":[\"create_task\"]}}");
         validRoleRequest = new RoleRequest(
             "Test Role",
             "Test role description",
             "org-123",
             RoleManagementType.CUSTOMER_MANAGED,
-            "{\"data\":{\"view\":[\"task\"],\"edit\":[\"task\"]},\"features\":{\"execute\":[\"create_task\"]}}"
+            policyNode
         );
     }
 
@@ -56,14 +62,14 @@ class RoleServiceTest {
     }
 
     @Test
-    void testCreateRoleWithInvalidPolicy() {
+    void testCreateRoleWithNullPolicy() {
         // Given
         RoleRequest invalidRequest = new RoleRequest(
             "Test Role",
             "Test role description",
             "org-123",
             RoleManagementType.CUSTOMER_MANAGED,
-            "invalid json"
+            null
         );
 
         // When & Then

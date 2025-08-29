@@ -63,7 +63,7 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     /**
      * Find roles by organization UUID with policy containing specific resource.
      */
-    @Query("SELECT r FROM Role r WHERE r.organizationUuid = :organizationUuid AND r.policy LIKE %:resource%")
+    @Query(value = "SELECT * FROM roles r WHERE r.organization_uuid = :organizationUuid AND r.policy::text LIKE %:resource%", nativeQuery = true)
     List<Role> findByOrganizationUuidAndPolicyContainingResource(@Param("organizationUuid") String organizationUuid, 
                                                                 @Param("resource") String resource);
 

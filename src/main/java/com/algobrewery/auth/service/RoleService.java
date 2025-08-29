@@ -5,6 +5,7 @@ import com.algobrewery.auth.dto.RoleResponse;
 import com.algobrewery.auth.model.Role;
 import com.algobrewery.auth.model.RoleManagementType;
 import com.algobrewery.auth.repository.RoleRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,12 +167,11 @@ public class RoleService {
     /**
      * Validate policy JSON format.
      */
-    private void validatePolicy(String policy) {
-        try {
-            objectMapper.readTree(policy);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid policy JSON format: " + e.getMessage());
+    private void validatePolicy(JsonNode policy) {
+        if (policy == null || policy.isNull()) {
+            throw new IllegalArgumentException("Policy cannot be null");
         }
+        // JsonNode is already validated JSON, so we just need to check for null
     }
 
     /**

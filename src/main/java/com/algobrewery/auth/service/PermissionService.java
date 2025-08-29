@@ -114,7 +114,7 @@ public class PermissionService {
      */
     private boolean hasPermission(Role role, String action, String resource) {
         try {
-            JsonNode policy = objectMapper.readTree(role.getPolicy());
+            JsonNode policy = role.getPolicy();
             
             // Check data permissions
             if (policy.has("data")) {
