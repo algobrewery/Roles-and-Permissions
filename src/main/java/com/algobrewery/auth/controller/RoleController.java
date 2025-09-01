@@ -42,7 +42,7 @@ public class RoleController {
         logger.info("Creating role: {}", request.getRoleName());
         
         try {
-            RoleResponse response = roleService.createRole(request, userUuid);
+            RoleResponse response = roleService.createRole(request, userUuid).join();
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request for role creation: {}", e.getMessage());
@@ -63,7 +63,7 @@ public class RoleController {
         logger.info("Updating role: {}", roleUuid);
         
         try {
-            RoleResponse response = roleService.updateRole(roleUuid, request);
+            RoleResponse response = roleService.updateRole(roleUuid, request).join();
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request for role update: {}", e.getMessage());
@@ -83,7 +83,7 @@ public class RoleController {
         logger.info("Deleting role: {}", roleUuid);
         
         try {
-            roleService.deleteRole(roleUuid);
+            roleService.deleteRole(roleUuid).join();
             Map<String, Object> response = Map.of(
                 "role_uuid", roleUuid.toString(),
                 "status", "deleted"
@@ -107,7 +107,7 @@ public class RoleController {
         logger.debug("Getting role: {}", roleUuid);
         
         try {
-            RoleResponse response = roleService.getRole(roleUuid);
+            RoleResponse response = roleService.getRole(roleUuid).join();
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Role not found: {}", roleUuid);
@@ -127,7 +127,7 @@ public class RoleController {
         logger.debug("Getting roles for organization: {}", organizationUuid);
         
         try {
-            List<RoleResponse> responses = roleService.getRolesByOrganization(organizationUuid);
+            List<RoleResponse> responses = roleService.getRolesByOrganization(organizationUuid).join();
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
             logger.error("Error getting roles for organization: {}", e.getMessage(), e);
@@ -144,7 +144,7 @@ public class RoleController {
         logger.debug("Getting system-managed roles");
         
         try {
-            List<RoleResponse> responses = roleService.getSystemManagedRoles();
+            List<RoleResponse> responses = roleService.getSystemManagedRoles().join();
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
             logger.error("Error getting system-managed roles: {}", e.getMessage(), e);

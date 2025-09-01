@@ -16,12 +16,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.CompletionException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
-@ActiveProfiles("integration-test")
+@ActiveProfiles("test")
 @Transactional
 @DisplayName("Database Integration Tests with Real PostgreSQL")
 class DatabaseIntegrationTest {
@@ -59,7 +60,7 @@ class DatabaseIntegrationTest {
         );
 
         // When
-        RoleResponse createdRole = roleService.createRole(request, createdBy);
+        RoleResponse createdRole = roleService.createRole(request, createdBy).join();
 
         // Then
         assertThat(createdRole).isNotNull();
@@ -68,7 +69,7 @@ class DatabaseIntegrationTest {
         assertThat(createdRole.getRoleUuid()).isNotNull();
 
         // Verify we can retrieve the role
-        RoleResponse retrievedRole = roleService.getRole(createdRole.getRoleUuid());
+        RoleResponse retrievedRole = roleService.getRole(createdRole.getRoleUuid()).join();
         assertThat(retrievedRole).isNotNull();
         assertThat(retrievedRole.getRoleName()).isEqualTo(roleName);
         assertThat(retrievedRole.getRoleUuid()).isEqualTo(createdRole.getRoleUuid());
@@ -87,7 +88,7 @@ class DatabaseIntegrationTest {
             testPolicy
         );
 
-        RoleResponse createdRole = roleService.createRole(createRequest, createdBy);
+        RoleResponse createdRole = roleService.createRole(createRequest, createdBy).join();
 
         // When - Update the role
         String updatedName = "Updated DB Role " + faker.number().randomNumber();
@@ -99,7 +100,7 @@ class DatabaseIntegrationTest {
             testPolicy
         );
 
-        RoleResponse updatedRole = roleService.updateRole(createdRole.getRoleUuid(), updateRequest);
+        RoleResponse updatedRole = roleService.updateRole(createdRole.getRoleUuid(), updateRequest).join();
 
         // Then
         assertThat(updatedRole).isNotNull();
@@ -112,7 +113,7 @@ class DatabaseIntegrationTest {
     @DisplayName("Should delete role using real database")
     void testDeleteRole() {
         // Given - Create a role first
-        String roleName = "Delete DB Test Role " + faker.number().randomNumber();
+        String roleName = "DB Integration Test Role " + faker.number().randomNumber();
         RoleRequest createRequest = new RoleRequest(
             roleName,
             "Test description",
@@ -121,14 +122,15 @@ class DatabaseIntegrationTest {
             testPolicy
         );
 
-        RoleResponse createdRole = roleService.createRole(createRequest, createdBy);
+        RoleResponse createdRole = roleService.createRole(createRequest, createdBy).join();
 
         // When
-        roleService.deleteRole(createdRole.getRoleUuid());
+        roleService.deleteRole(createdRole.getRoleUuid()).join();
 
         // Then - Verify the role is deleted by trying to get it (should throw exception)
-        assertThatThrownBy(() -> roleService.getRole(createdRole.getRoleUuid()))
-            .isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> roleService.getRole(createdRole.getRoleUuid()).join())
+            .isInstanceOf(CompletionException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Role not found");
     }
 
@@ -155,11 +157,11 @@ class DatabaseIntegrationTest {
             testPolicy
         );
 
-        roleService.createRole(request1, createdBy);
-        roleService.createRole(request2, createdBy);
+        roleService.createRole(request1, createdBy).join();
+        roleService.createRole(request2, createdBy).join();
 
         // When
-        List<RoleResponse> roles = roleService.getRolesByOrganization(testOrganizationUuid);
+        List<RoleResponse> roles = roleService.getRolesByOrganization(testOrganizationUuid).join();
 
         // Then
         assertThat(roles).hasSize(2);
@@ -170,7 +172,7 @@ class DatabaseIntegrationTest {
     @DisplayName("Should get system-managed roles using real database")
     void testGetSystemManagedRoles() {
         // When
-        List<RoleResponse> systemRoles = roleService.getSystemManagedRoles();
+        List<RoleResponse> systemRoles = roleService.getSystemManagedRoles().join();
 
         // Then
         assertThat(systemRoles).isNotNull();
@@ -193,11 +195,12 @@ class DatabaseIntegrationTest {
             testPolicy
         );
 
-        roleService.createRole(request, createdBy);
+        roleService.createRole(request, createdBy).join();
 
         // When & Then - Try to create another role with the same name
-        assertThatThrownBy(() -> roleService.createRole(request, createdBy))
-            .isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> roleService.createRole(request, createdBy).join())
+            .isInstanceOf(CompletionException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Role name already exists");
     }
 
@@ -215,8 +218,9 @@ class DatabaseIntegrationTest {
         );
 
         // When & Then
-        assertThatThrownBy(() -> roleService.updateRole(nonExistentUuid, updateRequest))
-            .isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> roleService.updateRole(nonExistentUuid, updateRequest).join())
+            .isInstanceOf(CompletionException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Role not found");
     }
 }

@@ -71,6 +71,9 @@ dependencies {
         exclude group: 'org.yaml', module: 'snakeyaml'
     }
     testImplementation 'org.assertj:assertj-core:3.24.2'
+    
+    // Embedded Redis for tests
+    testImplementation 'com.github.kstyrc:embedded-redis:0.6'
 
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 }

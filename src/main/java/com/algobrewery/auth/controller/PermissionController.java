@@ -2,6 +2,7 @@ package com.algobrewery.auth.controller;
 
 import com.algobrewery.auth.dto.PermissionCheckRequest;
 import com.algobrewery.auth.dto.PermissionCheckResponse;
+import com.algobrewery.auth.dto.EndpointPermissionCheckRequest;
 import com.algobrewery.auth.service.PermissionService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class PermissionController {
                     request.getUserUuid(), request.getAction(), request.getResource());
         
         try {
-            PermissionCheckResponse response = permissionService.checkPermission(request);
+            PermissionCheckResponse response = permissionService.checkPermission(request).join();
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error checking permission: {}", e.getMessage(), e);
@@ -54,7 +55,7 @@ public class PermissionController {
                     request.getUserUuid(), request.getAction(), request.getResource());
         
         try {
-            PermissionCheckResponse response = permissionService.checkPermission(request);
+            PermissionCheckResponse response = permissionService.checkPermission(request).join();
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error checking permission: {}", e.getMessage(), e);
@@ -67,12 +68,19 @@ public class PermissionController {
      * POST /check-permission
      */
     @PostMapping("/check-permission")
-    public ResponseEntity<PermissionCheckResponse> checkPermissionByEndpoint(@Valid @RequestBody PermissionCheckRequest request) {
+    public ResponseEntity<PermissionCheckResponse> checkPermissionByEndpoint(@Valid @RequestBody EndpointPermissionCheckRequest request) {
         logger.debug("Checking permission by endpoint for user: {}, endpoint: {}", 
                     request.getUserUuid(), request.getEndpoint());
         
         try {
-            PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(request);
+            // Convert to PermissionCheckRequest for the service
+            PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
+            serviceRequest.setUserUuid(request.getUserUuid());
+            serviceRequest.setOrganizationUuid(request.getOrganizationUuid());
+            serviceRequest.setEndpoint(request.getEndpoint());
+            serviceRequest.setResourceId(request.getResourceId());
+            
+            PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(serviceRequest).join();
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error checking permission by endpoint: {}", e.getMessage(), e);

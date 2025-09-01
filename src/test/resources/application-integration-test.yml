@@ -38,7 +38,7 @@ spring:
           max-wait: -1ms
 
   cache:
-    type: redis
+    type: simple
     redis:
       time-to-live: 300000 # 5 minutes
       cache-null-values: false

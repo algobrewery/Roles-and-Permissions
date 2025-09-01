@@ -5,6 +5,7 @@ import com.algobrewery.auth.dto.RoleResponse;
 import com.algobrewery.auth.model.Role;
 import com.algobrewery.auth.model.RoleManagementType;
 import com.algobrewery.auth.repository.RoleRepository;
+import com.algobrewery.auth.service.impl.RoleServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +38,7 @@ class RoleServiceUnitTest {
     private ObjectMapper objectMapper;
 
     @InjectMocks
-    private RoleService roleService;
+    private RoleServiceImpl roleService;
 
     private RoleRequest validRoleRequest;
     private Role mockRole;
@@ -83,7 +84,7 @@ class RoleServiceUnitTest {
         when(roleRepository.save(any(Role.class))).thenReturn(mockRole);
 
         // When
-        RoleResponse response = roleService.createRole(validRoleRequest, "user-123");
+        RoleResponse response = roleService.createRole(validRoleRequest, "user-123").join();
 
         // Then
         assertThat(response).isNotNull();
@@ -105,9 +106,10 @@ class RoleServiceUnitTest {
             .thenReturn(true);
 
         // When & Then
-        assertThatThrownBy(() -> roleService.createRole(validRoleRequest, "user-123"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Role name already exists in this organization");
+        assertThatThrownBy(() -> roleService.createRole(validRoleRequest, "user-123").join())
+            .isInstanceOf(RuntimeException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
+            .hasRootCauseMessage("Role name already exists in this organization");
 
         verify(roleRepository).existsByRoleNameAndOrganizationUuid("Test Role", "org-123");
         verify(roleRepository, never()).save(any(Role.class));
@@ -126,9 +128,10 @@ class RoleServiceUnitTest {
         );
 
         // When & Then
-        assertThatThrownBy(() -> roleService.createRole(invalidRequest, "user-123"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Policy cannot be null");
+        assertThatThrownBy(() -> roleService.createRole(invalidRequest, "user-123").join())
+            .isInstanceOf(RuntimeException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
+            .hasRootCauseMessage("Policy cannot be null");
     }
 
     @Test
@@ -147,7 +150,7 @@ class RoleServiceUnitTest {
         when(roleRepository.save(any(Role.class))).thenReturn(mockRole);
 
         // When
-        RoleResponse response = roleService.updateRole(roleUuid, updateRequest);
+        RoleResponse response = roleService.updateRole(roleUuid, updateRequest).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -164,9 +167,10 @@ class RoleServiceUnitTest {
         when(roleRepository.findByRoleUuid(roleUuid)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> roleService.updateRole(roleUuid, validRoleRequest))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Role not found: " + roleUuid);
+        assertThatThrownBy(() -> roleService.updateRole(roleUuid, validRoleRequest).join())
+            .isInstanceOf(RuntimeException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
+            .hasRootCauseMessage("Role not found: " + roleUuid);
 
         verify(roleRepository).findByRoleUuid(roleUuid);
         verify(roleRepository, never()).save(any(Role.class));
@@ -180,7 +184,7 @@ class RoleServiceUnitTest {
         doNothing().when(roleRepository).delete(any(Role.class));
 
         // When
-        roleService.deleteRole(roleUuid);
+        roleService.deleteRole(roleUuid).join();
 
         // Then
         verify(roleRepository).findByRoleUuid(roleUuid);
@@ -204,9 +208,10 @@ class RoleServiceUnitTest {
         when(roleRepository.findByRoleUuid(roleUuid)).thenReturn(Optional.of(systemRole));
 
         // When & Then
-        assertThatThrownBy(() -> roleService.deleteRole(roleUuid))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Cannot delete system-managed role");
+        assertThatThrownBy(() -> roleService.deleteRole(roleUuid).join())
+            .isInstanceOf(RuntimeException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
+            .hasRootCauseMessage("Cannot delete system-managed role");
 
         verify(roleRepository).findByRoleUuid(roleUuid);
         verify(roleRepository, never()).delete(any(Role.class));
@@ -219,9 +224,10 @@ class RoleServiceUnitTest {
         when(roleRepository.findByRoleUuid(roleUuid)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> roleService.deleteRole(roleUuid))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Role not found: " + roleUuid);
+        assertThatThrownBy(() -> roleService.deleteRole(roleUuid).join())
+            .isInstanceOf(RuntimeException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
+            .hasRootCauseMessage("Role not found: " + roleUuid);
 
         verify(roleRepository).findByRoleUuid(roleUuid);
         verify(roleRepository, never()).delete(any(Role.class));
@@ -234,7 +240,7 @@ class RoleServiceUnitTest {
         when(roleRepository.findByRoleUuid(roleUuid)).thenReturn(Optional.of(mockRole));
 
         // When
-        RoleResponse response = roleService.getRole(roleUuid);
+        RoleResponse response = roleService.getRole(roleUuid).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -251,9 +257,10 @@ class RoleServiceUnitTest {
         when(roleRepository.findByRoleUuid(roleUuid)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> roleService.getRole(roleUuid))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("Role not found: " + roleUuid);
+        assertThatThrownBy(() -> roleService.getRole(roleUuid).join())
+            .isInstanceOf(RuntimeException.class)
+            .hasCauseInstanceOf(IllegalArgumentException.class)
+            .hasRootCauseMessage("Role not found: " + roleUuid);
 
         verify(roleRepository).findByRoleUuid(roleUuid);
     }
@@ -266,7 +273,7 @@ class RoleServiceUnitTest {
         when(roleRepository.findByOrganizationUuid("org-123")).thenReturn(roles);
 
         // When
-        List<RoleResponse> responses = roleService.getRolesByOrganization("org-123");
+        List<RoleResponse> responses = roleService.getRolesByOrganization("org-123").join();
 
         // Then
         assertThat(responses).isNotNull();
@@ -296,7 +303,7 @@ class RoleServiceUnitTest {
             .thenReturn(roles);
 
         // When
-        List<RoleResponse> responses = roleService.getSystemManagedRoles();
+        List<RoleResponse> responses = roleService.getSystemManagedRoles().join();
 
         // Then
         assertThat(responses).isNotNull();
@@ -315,7 +322,7 @@ class RoleServiceUnitTest {
             .thenReturn(Optional.of(mockRole));
 
         // When
-        Optional<RoleResponse> response = roleService.getRoleByNameAndOrganization("Test Role", "org-123");
+        Optional<RoleResponse> response = roleService.getRoleByNameAndOrganization("Test Role", "org-123").join();
 
         // Then
         assertThat(response).isPresent();
@@ -333,7 +340,7 @@ class RoleServiceUnitTest {
             .thenReturn(Optional.empty());
 
         // When
-        Optional<RoleResponse> response = roleService.getRoleByNameAndOrganization("NonExistent", "org-123");
+        Optional<RoleResponse> response = roleService.getRoleByNameAndOrganization("NonExistent", "org-123").join();
 
         // Then
         assertThat(response).isEmpty();

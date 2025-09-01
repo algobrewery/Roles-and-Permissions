@@ -46,7 +46,7 @@ public class UserRoleController {
         
         try {
             UserRoleAssignmentResponse response = userRoleService.assignRoleToUser(
-                userUuid, request.getRoleUuid(), request.getOrganizationUuid(), assignerUuid);
+                userUuid, request.getRoleUuid(), request.getOrganizationUuid(), assignerUuid).join();
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request for role assignment: {}", e.getMessage());
@@ -71,7 +71,7 @@ public class UserRoleController {
                    roleUuid, userUuid, organizationUuid);
         
         try {
-            userRoleService.removeRoleFromUser(userUuid, roleUuid, organizationUuid);
+            userRoleService.removeRoleFromUser(userUuid, roleUuid, organizationUuid).join();
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request for role removal: {}", e.getMessage());
@@ -94,7 +94,7 @@ public class UserRoleController {
         logger.debug("Getting roles for user {} in organization {}", userUuid, organizationUuid);
         
         try {
-            List<UserRoleAssignmentResponse> responses = userRoleService.getUserRoles(userUuid, organizationUuid);
+            List<UserRoleAssignmentResponse> responses = userRoleService.getUserRoles(userUuid, organizationUuid).join();
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
             logger.error("Error getting user roles: {}", e.getMessage(), e);
