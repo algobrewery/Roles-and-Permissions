@@ -39,22 +39,18 @@ public class UserRoleController {
     public ResponseEntity<UserRoleAssignmentResponse> assignRoleToUser(
             @PathVariable String userUuid,
             @Valid @RequestBody UserRoleAssignmentRequest request,
-            @RequestHeader("x-app-user-uuid") String assignerUuid) {
+            @RequestHeader(value = "x-app-user-uuid", required = false) String assignerUuid) {
+        
+        if (assignerUuid == null || assignerUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("Assigner UUID header is required");
+        }
         
         logger.info("Assigning role {} to user {} in organization {}", 
                    request.getRoleUuid(), userUuid, request.getOrganizationUuid());
         
-        try {
-            UserRoleAssignmentResponse response = userRoleService.assignRoleToUser(
-                userUuid, request.getRoleUuid(), request.getOrganizationUuid(), assignerUuid).join();
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for role assignment: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            logger.error("Error assigning role to user: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        UserRoleAssignmentResponse response = userRoleService.assignRoleToUser(
+            userUuid, request.getRoleUuid(), request.getOrganizationUuid(), assignerUuid).join();
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
@@ -65,21 +61,17 @@ public class UserRoleController {
     public ResponseEntity<Void> removeRoleFromUser(
             @PathVariable String userUuid,
             @PathVariable String roleUuid,
-            @RequestParam("organization_uuid") String organizationUuid) {
+            @RequestParam(value = "organization_uuid", required = false) String organizationUuid) {
+        
+        if (organizationUuid == null || organizationUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("Organization UUID parameter is required");
+        }
         
         logger.info("Removing role {} from user {} in organization {}", 
                    roleUuid, userUuid, organizationUuid);
         
-        try {
-            userRoleService.removeRoleFromUser(userUuid, roleUuid, organizationUuid).join();
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for role removal: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            logger.error("Error removing role from user: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        userRoleService.removeRoleFromUser(userUuid, roleUuid, organizationUuid).join();
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -89,16 +81,15 @@ public class UserRoleController {
     @GetMapping("/{userUuid}/roles")
     public ResponseEntity<List<UserRoleAssignmentResponse>> getUserRoles(
             @PathVariable String userUuid,
-            @RequestParam("organization_uuid") String organizationUuid) {
+            @RequestParam(value = "organization_uuid", required = false) String organizationUuid) {
+        
+        if (organizationUuid == null || organizationUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("Organization UUID parameter is required");
+        }
         
         logger.debug("Getting roles for user {} in organization {}", userUuid, organizationUuid);
         
-        try {
-            List<UserRoleAssignmentResponse> responses = userRoleService.getUserRoles(userUuid, organizationUuid).join();
-            return ResponseEntity.ok(responses);
-        } catch (Exception e) {
-            logger.error("Error getting user roles: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        List<UserRoleAssignmentResponse> responses = userRoleService.getUserRoles(userUuid, organizationUuid).join();
+        return ResponseEntity.ok(responses);
     }
 }

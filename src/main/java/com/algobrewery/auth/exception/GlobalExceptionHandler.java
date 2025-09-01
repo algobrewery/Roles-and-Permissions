@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -35,6 +36,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(error);
     }
 
+    @ExceptionHandler(java.util.concurrent.CompletionException.class)
+    public ResponseEntity<ErrorResponse> handleCompletionException(java.util.concurrent.CompletionException ex) {
+        logger.warn("Completion exception: {}", ex.getMessage());
+        
+        // Unwrap the CompletionException to get the underlying cause
+        Throwable cause = ex.getCause();
+        if (cause instanceof IllegalArgumentException) {
+            return handleIllegalArgumentException((IllegalArgumentException) cause);
+        }
+        
+        // For other types of exceptions, return internal server error
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            "Internal Server Error",
+            "An unexpected error occurred",
+            Instant.now()
+        );
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
         logger.warn("Validation exception: {}", ex.getMessage());
@@ -52,6 +74,20 @@ public class GlobalExceptionHandler {
             "Request validation failed",
             Instant.now(),
             errors
+        );
+        
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        logger.warn("HTTP message not readable: {}", ex.getMessage());
+        
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            "Bad Request",
+            "Invalid request body: " + ex.getMessage(),
+            Instant.now()
         );
         
         return ResponseEntity.badRequest().body(error);

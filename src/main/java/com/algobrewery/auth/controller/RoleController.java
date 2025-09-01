@@ -38,19 +38,15 @@ public class RoleController {
      */
     @PostMapping
     public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody RoleRequest request,
-                                                  @RequestHeader("x-app-user-uuid") String userUuid) {
+                                                  @RequestHeader(value = "x-app-user-uuid", required = false) String userUuid) {
+        if (userUuid == null || userUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("User UUID header is required");
+        }
+        
         logger.info("Creating role: {}", request.getRoleName());
         
-        try {
-            RoleResponse response = roleService.createRole(request, userUuid).join();
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for role creation: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            logger.error("Error creating role: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        RoleResponse response = roleService.createRole(request, userUuid).join();
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
@@ -59,19 +55,16 @@ public class RoleController {
      */
     @PutMapping("/{roleUuid}")
     public ResponseEntity<RoleResponse> updateRole(@PathVariable UUID roleUuid,
-                                                  @Valid @RequestBody RoleRequest request) {
+                                                  @Valid @RequestBody RoleRequest request,
+                                                  @RequestHeader(value = "x-app-user-uuid", required = false) String userUuid) {
+        if (userUuid == null || userUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("User UUID header is required");
+        }
+        
         logger.info("Updating role: {}", roleUuid);
         
-        try {
-            RoleResponse response = roleService.updateRole(roleUuid, request).join();
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for role update: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            logger.error("Error updating role: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        RoleResponse response = roleService.updateRole(roleUuid, request).join();
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -79,23 +72,16 @@ public class RoleController {
      * DELETE /role/{role_uuid}
      */
     @DeleteMapping("/{roleUuid}")
-    public ResponseEntity<Map<String, Object>> deleteRole(@PathVariable UUID roleUuid) {
+    public ResponseEntity<Void> deleteRole(@PathVariable UUID roleUuid,
+                                          @RequestHeader(value = "x-app-user-uuid", required = false) String userUuid) {
+        if (userUuid == null || userUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("User UUID header is required");
+        }
+        
         logger.info("Deleting role: {}", roleUuid);
         
-        try {
-            roleService.deleteRole(roleUuid).join();
-            Map<String, Object> response = Map.of(
-                "role_uuid", roleUuid.toString(),
-                "status", "deleted"
-            );
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid request for role deletion: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            logger.error("Error deleting role: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        roleService.deleteRole(roleUuid).join();
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -106,16 +92,8 @@ public class RoleController {
     public ResponseEntity<RoleResponse> getRole(@PathVariable UUID roleUuid) {
         logger.debug("Getting role: {}", roleUuid);
         
-        try {
-            RoleResponse response = roleService.getRole(roleUuid).join();
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            logger.warn("Role not found: {}", roleUuid);
-            return ResponseEntity.notFound().build();
-        } catch (Exception e) {
-            logger.error("Error getting role: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        RoleResponse response = roleService.getRole(roleUuid).join();
+        return ResponseEntity.ok(response);
     }
 
     /**

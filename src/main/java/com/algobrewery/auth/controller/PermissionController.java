@@ -36,13 +36,8 @@ public class PermissionController {
         logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
                     request.getUserUuid(), request.getAction(), request.getResource());
         
-        try {
-            PermissionCheckResponse response = permissionService.checkPermission(request).join();
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Error checking permission: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).build();
-        }
+        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -54,13 +49,8 @@ public class PermissionController {
         logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
                     request.getUserUuid(), request.getAction(), request.getResource());
         
-        try {
-            PermissionCheckResponse response = permissionService.checkPermission(request).join();
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Error checking permission: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).build();
-        }
+        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -72,19 +62,14 @@ public class PermissionController {
         logger.debug("Checking permission by endpoint for user: {}, endpoint: {}", 
                     request.getUserUuid(), request.getEndpoint());
         
-        try {
-            // Convert to PermissionCheckRequest for the service
-            PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
-            serviceRequest.setUserUuid(request.getUserUuid());
-            serviceRequest.setOrganizationUuid(request.getOrganizationUuid());
-            serviceRequest.setEndpoint(request.getEndpoint());
-            serviceRequest.setResourceId(request.getResourceId());
-            
-            PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(serviceRequest).join();
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Error checking permission by endpoint: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).build();
-        }
+        // Convert to PermissionCheckRequest for the service
+        PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
+        serviceRequest.setUserUuid(request.getUserUuid());
+        serviceRequest.setOrganizationUuid(request.getOrganizationUuid());
+        serviceRequest.setEndpoint(request.getEndpoint());
+        serviceRequest.setResourceId(request.getResourceId());
+        
+        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(serviceRequest).join();
+        return ResponseEntity.ok(response);
     }
 }
