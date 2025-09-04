@@ -81,21 +81,21 @@ public class UserRoleServiceImpl implements UserRoleService {
      * Remove role from user.
      */
     @Override
+    @Transactional
     @CacheEvict(value = "permissions", allEntries = true)
     public CompletableFuture<Void> removeRoleFromUser(String userUuid, String roleUuid, String organizationUuid) {
-        return CompletableFuture.runAsync(() -> {
-            logger.info("Removing role {} from user {} in organization {}", roleUuid, userUuid, organizationUuid);
+        logger.info("Removing role {} from user {} in organization {}", roleUuid, userUuid, organizationUuid);
 
-            // Check if assignment exists
-            if (!userRoleRepository.existsByUserUuidAndRoleUuidAndOrganizationUuid(userUuid, roleUuid, organizationUuid)) {
-                throw new IllegalArgumentException("Role assignment not found");
-            }
+        // Check if assignment exists
+        if (!userRoleRepository.existsByUserUuidAndRoleUuidAndOrganizationUuid(userUuid, roleUuid, organizationUuid)) {
+            throw new IllegalArgumentException("Role assignment not found");
+        }
 
-            // Delete the assignment
-            userRoleRepository.deleteByUserUuidAndRoleUuidAndOrganizationUuid(userUuid, roleUuid, organizationUuid);
+        // Delete the assignment
+        userRoleRepository.deleteByUserUuidAndRoleUuidAndOrganizationUuid(userUuid, roleUuid, organizationUuid);
 
-            logger.info("Role removed successfully from user: {}", userUuid);
-        });
+        logger.info("Role removed successfully from user: {}", userUuid);
+        return CompletableFuture.completedFuture(null);
     }
 
     /**

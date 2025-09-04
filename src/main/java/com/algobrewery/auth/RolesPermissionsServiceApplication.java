@@ -10,7 +10,10 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * Main application class for the Roles & Permissions Service.
  * Provides centralized authorization management for Task Silo services.
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {
+    org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration.class,
+    org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration.class
+})
 @EnableJpaAuditing
 @EnableCaching
 @EnableAsync
