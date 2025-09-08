@@ -1,0 +1,418 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy Roles and Permissions Service on ECS Fargate with ALB and API Gateway
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: CIDR block for the first public subnet
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.0.2.0/24
+    Description: CIDR block for the second public subnet
+  ContainerPort:
+    Type: Number
+    Default: 8081
+    Description: Port on which the container is listening
+  DesiredCount:
+    Type: Number
+    Default: 1
+    Description: Desired number of tasks in the ECS service
+  ImageUrl:
+    Type: String
+    Default: sindhu030/roles_and_permissions:latest
+    Description: Docker image URL for the Roles and Permissions Service
+  DBHost:
+    Type: String
+    Default: nucleus-staging.c6j42qq2krlk.us-east-1.rds.amazonaws.com
+    Description: RDS database endpoint
+  DBName:
+    Type: String
+    Default: postgres
+    Description: Database name
+  DBUsername:
+    Type: String
+    Default: postgres
+    Description: Database username
+  DBPassword:
+    Type: String
+    Default: nucleus-staging
+    NoEcho: true
+    Description: Database password
+  RedisHost:
+    Type: String
+    Default: localhost
+    Description: Redis host (set to localhost to disable Redis caching)
+  RedisPort:
+    Type: Number
+    Default: 6379
+    Description: Redis port
+  RedisPassword:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: Redis password (leave empty if no password)
+  JwtSecret:
+    Type: String
+    Default: your-secret-key-here
+    NoEcho: true
+    Description: JWT secret key for authentication
+  JwtExpiration:
+    Type: Number
+    Default: 86400000
+    Description: JWT expiration time in milliseconds (default 24 hours)
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues: [DEBUG, INFO, WARN, ERROR]
+    Description: Application log level
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+    Description: Environment name
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-vpc'
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet1Cidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-public-subnet-1'
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet2Cidr
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-public-subnet-2'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-igw'
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-public-rt'
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP traffic to ALB
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-alb-sg'
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow ALB to ECS and database access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-ecs-sg'
+
+  RolesPermissionsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${Environment}-roles-permissions-cluster'
+      CapacityProviders:
+        - FARGATE
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  RolesPermissionsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/${Environment}-roles-permissions-service'
+      RetentionInDays: 30
+
+  AppTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${Environment}-roles-permissions-task'
+      Cpu: '1024'
+      Memory: '2048'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      Tags:
+        - Key: Service
+          Value: roles-permissions
+        - Key: Environment
+          Value: !Ref Environment
+      ContainerDefinitions:
+        - Name: roles-permissions-service
+          Image: !Ref ImageUrl
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          Environment:
+            - Name: SPRING_PROFILES_ACTIVE
+              Value: prod
+            - Name: SPRING_DATASOURCE_URL
+              Value: !Sub 'jdbc:postgresql://${DBHost}:5432/${DBName}?sslmode=require&connectTimeout=30&socketTimeout=30'
+            - Name: SPRING_DATASOURCE_USERNAME
+              Value: !Ref DBUsername
+            - Name: SPRING_DATASOURCE_PASSWORD
+              Value: !Ref DBPassword
+            - Name: SERVER_PORT
+              Value: !Ref ContainerPort
+            - Name: REDIS_HOST
+              Value: !Ref RedisHost
+            - Name: REDIS_PORT
+              Value: !Ref RedisPort
+            - Name: REDIS_PASSWORD
+              Value: !Ref RedisPassword
+            - Name: JWT_SECRET
+              Value: !Ref JwtSecret
+            - Name: JWT_EXPIRATION
+              Value: !Ref JwtExpiration
+            - Name: LOG_LEVEL
+              Value: !Ref LogLevel
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref RolesPermissionsLogGroup
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: ecs
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - "curl -f http://localhost:8081/actuator/health || exit 1"
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+  AppALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${Environment}-roles-permissions-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-roles-permissions-alb'
+
+  AppALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${Environment}-roles-permissions-tg'
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: ip
+      HealthCheckPath: /actuator/health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      HealthCheckPort: !Ref ContainerPort
+
+  AppALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref AppALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AppALBTargetGroup
+
+  AppService:
+    Type: AWS::ECS::Service
+    DependsOn: AppALBListener
+    Properties:
+      ServiceName: !Sub '${Environment}-roles-permissions-service'
+      Cluster: !Ref RolesPermissionsCluster
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      TaskDefinition: !Ref AppTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+          Subnets:
+            - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+      LoadBalancers:
+        - ContainerName: roles-permissions-service
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref AppALBTargetGroup
+      HealthCheckGracePeriodSeconds: 120
+
+  ApiGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${Environment}-roles-permissions-api'
+      ProtocolType: HTTP
+      Description: API Gateway for Roles and Permissions Service
+      Tags:
+        Service: roles-permissions
+        Environment: !Ref Environment
+
+  ApiGatewayIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    DependsOn: AppALBListener
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: HTTP_PROXY
+      IntegrationUri: !Sub 'http://${AppALB.DNSName}'
+      IntegrationMethod: ANY
+      TimeoutInMillis: 30000
+      PayloadFormatVersion: '1.0'
+
+  ApiGatewayDefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: '$default'
+      Target: !Sub 'integrations/${ApiGatewayIntegration}'
+
+  ApiGatewayStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApiGateway
+      StageName: prod
+      AutoDeploy: true
+      Tags:
+        Service: roles-permissions
+        Environment: !Ref Environment
+
+Outputs:
+  ApiEndpoint:
+    Description: 'API Gateway endpoint URL for Roles and Permissions Service'
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/'
+    Export:
+      Name: !Sub '${Environment}-roles-permissions-api-endpoint'
+  
+  ALBEndpoint:
+    Description: 'Application Load Balancer DNS Name'
+    Value: !GetAtt AppALB.DNSName
+    Export:
+      Name: !Sub '${Environment}-roles-permissions-alb-endpoint'
+  
+  ClusterName:
+    Description: 'ECS Cluster Name'
+    Value: !Ref RolesPermissionsCluster
+    Export:
+      Name: !Sub '${Environment}-roles-permissions-cluster'
+  
+  ServiceName:
+    Description: 'ECS Service Name'
+    Value: !Ref AppService
+    Export:
+      Name: !Sub '${Environment}-roles-permissions-service'
+  
+  LogGroupName:
+    Description: 'CloudWatch Log Group Name'
+    Value: !Ref RolesPermissionsLogGroup
+    Export:
+      Name: !Sub '${Environment}-roles-permissions-log-group'
