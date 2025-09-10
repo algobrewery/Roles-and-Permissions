@@ -4,8 +4,8 @@ FROM openjdk:17-jdk-slim
 # Set working directory
 WORKDIR /app
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install curl and dos2unix for health checks and line ending conversion
+RUN apt-get update && apt-get install -y curl dos2unix && rm -rf /var/lib/apt/lists/*
 
 # Copy gradle wrapper and build files
 COPY gradlew .
@@ -19,6 +19,7 @@ COPY src src
 
 # Make gradlew executable and build the application
 RUN chmod +x ./gradlew
+RUN dos2unix ./gradlew || true
 RUN ./gradlew build -x test
 
 # Create non-root user for security
@@ -34,11 +35,11 @@ RUN chown appuser:appuser app.jar
 USER appuser
 
 # Expose the port
-EXPOSE 8081
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8081/actuator/health || exit 1
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
