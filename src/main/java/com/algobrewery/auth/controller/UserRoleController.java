@@ -3,6 +3,8 @@ package com.algobrewery.auth.controller;
 import com.algobrewery.auth.dto.UserRoleAssignmentRequest;
 import com.algobrewery.auth.dto.UserRoleAssignmentResponse;
 import com.algobrewery.auth.service.UserRoleService;
+import com.algobrewery.auth.util.HeaderValidationUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,38 +36,43 @@ public class UserRoleController {
     /**
      * Assign role to user.
      * POST /users/{user_uuid}/roles
+     * Organization UUID is now provided via x-app-org-uuid header.
      */
     @PostMapping("/{userUuid}/roles")
     public ResponseEntity<UserRoleAssignmentResponse> assignRoleToUser(
             @PathVariable String userUuid,
             @Valid @RequestBody UserRoleAssignmentRequest request,
-            @RequestHeader(value = "x-app-user-uuid", required = false) String assignerUuid) {
+            HttpServletRequest httpRequest) {
         
-        if (assignerUuid == null || assignerUuid.trim().isEmpty()) {
-            throw new IllegalArgumentException("Assigner UUID header is required");
-        }
+        // Validate required headers
+        HeaderValidationUtil.validateRequiredHeaders(httpRequest);
+        
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        String assignerUuid = HeaderValidationUtil.getUserUuid(httpRequest);
         
         logger.info("Assigning role {} to user {} in organization {}", 
-                   request.getRoleUuid(), userUuid, request.getOrganizationUuid());
+                   request.getRoleUuid(), userUuid, organizationUuid);
         
         UserRoleAssignmentResponse response = userRoleService.assignRoleToUser(
-            userUuid, request.getRoleUuid(), request.getOrganizationUuid(), assignerUuid).join();
+            userUuid, request.getRoleUuid(), organizationUuid, assignerUuid).join();
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
      * Remove role from user.
      * DELETE /users/{user_uuid}/roles/{role_uuid}
+     * Organization UUID is now provided via x-app-org-uuid header.
      */
     @DeleteMapping("/{userUuid}/roles/{roleUuid}")
     public ResponseEntity<Void> removeRoleFromUser(
             @PathVariable String userUuid,
             @PathVariable String roleUuid,
-            @RequestParam(value = "organization_uuid", required = false) String organizationUuid) {
+            HttpServletRequest httpRequest) {
         
-        if (organizationUuid == null || organizationUuid.trim().isEmpty()) {
-            throw new IllegalArgumentException("Organization UUID parameter is required");
-        }
+        // Validate required headers
+        HeaderValidationUtil.validateOrganizationHeader(httpRequest);
+        
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
         
         logger.info("Removing role {} from user {} in organization {}", 
                    roleUuid, userUuid, organizationUuid);
@@ -77,15 +84,17 @@ public class UserRoleController {
     /**
      * Get user roles.
      * GET /users/{user_uuid}/roles
+     * Organization UUID is now provided via x-app-org-uuid header.
      */
     @GetMapping("/{userUuid}/roles")
     public ResponseEntity<List<UserRoleAssignmentResponse>> getUserRoles(
             @PathVariable String userUuid,
-            @RequestParam(value = "organization_uuid", required = false) String organizationUuid) {
+            HttpServletRequest httpRequest) {
         
-        if (organizationUuid == null || organizationUuid.trim().isEmpty()) {
-            throw new IllegalArgumentException("Organization UUID parameter is required");
-        }
+        // Validate required headers
+        HeaderValidationUtil.validateOrganizationHeader(httpRequest);
+        
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
         
         logger.debug("Getting roles for user {} in organization {}", userUuid, organizationUuid);
         

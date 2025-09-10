@@ -41,23 +41,23 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     /**
-     * Check if user has permission for a specific action and resource.
+     * Check if user has permission for a specific action and resource (new header-based method).
      */
     @Override
-    @Cacheable(value = "permissions", key = "#request.userUuid + '_' + #request.organizationUuid + '_' + #request.action + '_' + #request.resource")
-    public CompletableFuture<PermissionCheckResponse> checkPermission(PermissionCheckRequest request) {
+    @Cacheable(value = "permissions", key = "#userUuid + '_' + #organizationUuid + '_' + #request.action + '_' + #request.resource")
+    public CompletableFuture<PermissionCheckResponse> checkPermission(String userUuid, String organizationUuid, PermissionCheckRequest request) {
         return CompletableFuture.supplyAsync(() -> {
             logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
-                        request.getUserUuid(), request.getAction(), request.getResource());
+                        userUuid, request.getAction(), request.getResource());
 
             try {
                 // Get user's roles in the organization
                 List<UserRole> userRoles = userRoleRepository.findByUserUuidAndOrganizationUuid(
-                    request.getUserUuid(), request.getOrganizationUuid());
+                    userUuid, organizationUuid);
 
                 if (userRoles.isEmpty()) {
                     logger.debug("No roles found for user: {} in organization: {}", 
-                               request.getUserUuid(), request.getOrganizationUuid());
+                               userUuid, organizationUuid);
                     return new PermissionCheckResponse(false);
                 }
 
@@ -70,7 +70,7 @@ public class PermissionServiceImpl implements PermissionService {
                         Role role = roleOpt.get();
                         if (hasPermission(role, request.getAction(), request.getResource())) {
                             logger.debug("Permission granted for user: {} with role: {}", 
-                                       request.getUserUuid(), role.getRoleName());
+                                       userUuid, role.getRoleName());
                             return new PermissionCheckResponse(true, role.getRoleUuid().toString(), 
                                                              role.getRoleName(), "team");
                         }
@@ -78,25 +78,38 @@ public class PermissionServiceImpl implements PermissionService {
                 }
 
                 logger.debug("Permission denied for user: {} action: {} resource: {}", 
-                            request.getUserUuid(), request.getAction(), request.getResource());
+                            userUuid, request.getAction(), request.getResource());
                 return new PermissionCheckResponse(false);
 
             } catch (Exception e) {
-                logger.error("Error checking permission for user: {}", request.getUserUuid(), e);
+                logger.error("Error checking permission for user: {}", userUuid, e);
                 return new PermissionCheckResponse(false);
             }
         });
     }
 
     /**
-     * Check permission using endpoint mapping.
+     * Legacy method for backward compatibility (deprecated).
+     * This method should not be used as it requires user/org context in request body.
      */
     @Override
-    @Cacheable(value = "permissions", key = "#request.userUuid + '_' + #request.organizationUuid + '_' + #request.endpoint")
-    public CompletableFuture<PermissionCheckResponse> checkPermissionByEndpoint(PermissionCheckRequest request) {
+    @Deprecated
+    public CompletableFuture<PermissionCheckResponse> checkPermission(PermissionCheckRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            logger.warn("Using deprecated checkPermission method. Please use header-based approach.");
+            throw new UnsupportedOperationException("This method is deprecated. Use checkPermission(String userUuid, String organizationUuid, PermissionCheckRequest request) instead.");
+        });
+    }
+
+    /**
+     * Check permission using endpoint mapping (new header-based method).
+     */
+    @Override
+    @Cacheable(value = "permissions", key = "#userUuid + '_' + #organizationUuid + '_' + #request.endpoint")
+    public CompletableFuture<PermissionCheckResponse> checkPermissionByEndpoint(String userUuid, String organizationUuid, PermissionCheckRequest request) {
         return CompletableFuture.supplyAsync(() -> {
             logger.debug("Checking permission by endpoint for user: {}, endpoint: {}", 
-                        request.getUserUuid(), request.getEndpoint());
+                        userUuid, request.getEndpoint());
 
             // Map endpoint to action and resource
             EndpointMapping mapping = mapEndpointToActionResource(request.getEndpoint());
@@ -106,14 +119,25 @@ public class PermissionServiceImpl implements PermissionService {
             }
 
             // Create new request with mapped action and resource
-            PermissionCheckRequest mappedRequest = new PermissionCheckRequest(
-                request.getUserUuid(), 
-                request.getOrganizationUuid(), 
-                mapping.getAction(), 
-                mapping.getResource()
-            );
+            PermissionCheckRequest mappedRequest = new PermissionCheckRequest();
+            mappedRequest.setAction(mapping.getAction());
+            mappedRequest.setResource(mapping.getResource());
+            mappedRequest.setResourceId(request.getResourceId());
 
-            return checkPermission(mappedRequest).join();
+            return checkPermission(userUuid, organizationUuid, mappedRequest).join();
+        });
+    }
+
+    /**
+     * Legacy method for backward compatibility (deprecated).
+     * This method should not be used as it requires user/org context in request body.
+     */
+    @Override
+    @Deprecated
+    public CompletableFuture<PermissionCheckResponse> checkPermissionByEndpoint(PermissionCheckRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            logger.warn("Using deprecated checkPermissionByEndpoint method. Please use header-based approach.");
+            throw new UnsupportedOperationException("This method is deprecated. Use checkPermissionByEndpoint(String userUuid, String organizationUuid, PermissionCheckRequest request) instead.");
         });
     }
 

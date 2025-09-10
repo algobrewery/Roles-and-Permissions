@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * DTO for user-role assignment requests.
+ * Organization UUID is now provided via x-app-org-uuid header.
  */
 @Data
 @NoArgsConstructor
@@ -18,8 +19,6 @@ public class UserRoleAssignmentRequest {
     @JsonProperty("role_uuid")
     private String roleUuid;
 
-    @NotBlank(message = "Organization UUID is required")
-    @JsonProperty("organization_uuid")
-    private String organizationUuid;
+    // organization_uuid removed - now comes from x-app-org-uuid header
 
 }

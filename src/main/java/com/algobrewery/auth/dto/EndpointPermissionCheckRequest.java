@@ -8,19 +8,15 @@ import lombok.NoArgsConstructor;
 
 /**
  * DTO for endpoint-based permission check requests.
+ * User UUID and Organization UUID are now provided via headers (x-app-user-uuid and x-app-org-uuid).
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class EndpointPermissionCheckRequest {
 
-    @NotBlank(message = "User UUID is required")
-    @JsonProperty("user_uuid")
-    private String userUuid;
-
-    @NotBlank(message = "Organization UUID is required")
-    @JsonProperty("organization_uuid")
-    private String organizationUuid;
+    // user_uuid removed - now comes from x-app-user-uuid header
+    // organization_uuid removed - now comes from x-app-org-uuid header
 
     @NotBlank(message = "Endpoint is required")
     private String endpoint;

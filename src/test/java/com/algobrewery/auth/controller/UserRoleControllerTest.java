@@ -54,10 +54,9 @@ class UserRoleControllerTest {
         testOrganizationUuid = UUID.randomUUID().toString();
         testAssignerUuid = UUID.randomUUID().toString();
 
-        // Create test request
+        // Create test request (without organization context - now comes from headers)
         testRequest = new UserRoleAssignmentRequest();
         testRequest.setRoleUuid(testRoleUuid);
-        testRequest.setOrganizationUuid(testOrganizationUuid);
 
         // Create test response
         testResponse = new UserRoleAssignmentResponse();
@@ -78,6 +77,7 @@ class UserRoleControllerTest {
         // When & Then
         mockMvc.perform(post("/user/{userUuid}/roles", testUserUuid)
                 .header("x-app-user-uuid", testAssignerUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testRequest)))
             .andExpect(status().isCreated())
@@ -85,6 +85,33 @@ class UserRoleControllerTest {
             .andExpect(jsonPath("$.user_uuid").value(testUserUuid))
             .andExpect(jsonPath("$.role_uuid").value(testRoleUuid))
             .andExpect(jsonPath("$.organization_uuid").value(testOrganizationUuid));
+    }
+
+    @Test
+    @DisplayName("Should return bad request when missing required headers")
+    void testAssignRoleToUser_MissingHeaders() throws Exception {
+        // Given - Valid request but missing headers
+        String validJson = "{\"role_uuid\":\"" + testRoleUuid + "\"}";
+
+        // When & Then - Missing user header
+        mockMvc.perform(post("/user/{userUuid}/roles", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validJson))
+            .andExpect(status().isBadRequest());
+
+        // When & Then - Missing organization header
+        mockMvc.perform(post("/user/{userUuid}/roles", testUserUuid)
+                .header("x-app-user-uuid", testAssignerUuid)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validJson))
+            .andExpect(status().isBadRequest());
+
+        // When & Then - Missing both headers
+        mockMvc.perform(post("/user/{userUuid}/roles", testUserUuid)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validJson))
+            .andExpect(status().isBadRequest());
     }
 
     @Test

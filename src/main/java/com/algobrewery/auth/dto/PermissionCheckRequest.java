@@ -8,18 +8,14 @@ import lombok.NoArgsConstructor;
 
 /**
  * DTO for permission check requests.
+ * User UUID and Organization UUID are now provided via headers (x-app-user-uuid and x-app-org-uuid).
  */
 @Data
 @NoArgsConstructor
 public class PermissionCheckRequest {
 
-    @NotBlank(message = "User UUID is required")
-    @JsonProperty("user_uuid")
-    private String userUuid;
-
-    @NotBlank(message = "Organization UUID is required")
-    @JsonProperty("organization_uuid")
-    private String organizationUuid;
+    // user_uuid removed - now comes from x-app-user-uuid header
+    // organization_uuid removed - now comes from x-app-org-uuid header
 
     @NotBlank(message = "Action is required")
     private String action;
@@ -34,10 +30,9 @@ public class PermissionCheckRequest {
     @JsonProperty("resource_id")
     private String resourceId;
 
-    // Custom constructor for PermissionService
+    // Custom constructor for PermissionService (now requires context parameters)
     public PermissionCheckRequest(String userUuid, String organizationUuid, String action, String resource) {
-        this.userUuid = userUuid;
-        this.organizationUuid = organizationUuid;
+        // Note: userUuid and organizationUuid are now passed separately to service methods
         this.action = action;
         this.resource = resource;
     }

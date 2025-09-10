@@ -4,6 +4,8 @@ import com.algobrewery.auth.dto.PermissionCheckRequest;
 import com.algobrewery.auth.dto.PermissionCheckResponse;
 import com.algobrewery.auth.dto.EndpointPermissionCheckRequest;
 import com.algobrewery.auth.service.PermissionService;
+import com.algobrewery.auth.util.HeaderValidationUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,46 +32,77 @@ public class PermissionController {
     /**
      * Check permission for specific action and resource.
      * POST /permission/check
+     * User UUID and Organization UUID are now provided via headers.
      */
     @PostMapping("/permission/check")
-    public ResponseEntity<PermissionCheckResponse> checkPermission(@Valid @RequestBody PermissionCheckRequest request) {
-        logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
-                    request.getUserUuid(), request.getAction(), request.getResource());
+    public ResponseEntity<PermissionCheckResponse> checkPermission(
+            @Valid @RequestBody PermissionCheckRequest request,
+            HttpServletRequest httpRequest) {
         
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        // Validate required headers
+        HeaderValidationUtil.validateRequiredHeaders(httpRequest);
+        
+        String userUuid = HeaderValidationUtil.getUserUuid(httpRequest);
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        
+        logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
+                    userUuid, request.getAction(), request.getResource());
+        
+        PermissionCheckResponse response = permissionService.checkPermission(
+            userUuid, organizationUuid, request).join();
         return ResponseEntity.ok(response);
     }
 
     /**
      * Check permission for specific action and resource (legacy endpoint).
      * POST /has-permission
+     * User UUID and Organization UUID are now provided via headers.
      */
     @PostMapping("/has-permission")
-    public ResponseEntity<PermissionCheckResponse> hasPermission(@Valid @RequestBody PermissionCheckRequest request) {
-        logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
-                    request.getUserUuid(), request.getAction(), request.getResource());
+    public ResponseEntity<PermissionCheckResponse> hasPermission(
+            @Valid @RequestBody PermissionCheckRequest request,
+            HttpServletRequest httpRequest) {
         
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        // Validate required headers
+        HeaderValidationUtil.validateRequiredHeaders(httpRequest);
+        
+        String userUuid = HeaderValidationUtil.getUserUuid(httpRequest);
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        
+        logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
+                    userUuid, request.getAction(), request.getResource());
+        
+        PermissionCheckResponse response = permissionService.checkPermission(
+            userUuid, organizationUuid, request).join();
         return ResponseEntity.ok(response);
     }
 
     /**
      * Check permission using endpoint mapping (for API Gateway).
      * POST /check-permission
+     * User UUID and Organization UUID are now provided via headers.
      */
     @PostMapping("/check-permission")
-    public ResponseEntity<PermissionCheckResponse> checkPermissionByEndpoint(@Valid @RequestBody EndpointPermissionCheckRequest request) {
+    public ResponseEntity<PermissionCheckResponse> checkPermissionByEndpoint(
+            @Valid @RequestBody EndpointPermissionCheckRequest request,
+            HttpServletRequest httpRequest) {
+        
+        // Validate required headers
+        HeaderValidationUtil.validateRequiredHeaders(httpRequest);
+        
+        String userUuid = HeaderValidationUtil.getUserUuid(httpRequest);
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        
         logger.debug("Checking permission by endpoint for user: {}, endpoint: {}", 
-                    request.getUserUuid(), request.getEndpoint());
+                    userUuid, request.getEndpoint());
         
         // Convert to PermissionCheckRequest for the service
         PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
-        serviceRequest.setUserUuid(request.getUserUuid());
-        serviceRequest.setOrganizationUuid(request.getOrganizationUuid());
         serviceRequest.setEndpoint(request.getEndpoint());
         serviceRequest.setResourceId(request.getResourceId());
         
-        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(serviceRequest).join();
+        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(
+            userUuid, organizationUuid, serviceRequest).join();
         return ResponseEntity.ok(response);
     }
 }

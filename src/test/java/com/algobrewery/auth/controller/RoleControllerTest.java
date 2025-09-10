@@ -60,10 +60,9 @@ class RoleControllerTest {
         String policyJson = "{\"data\":{\"view\":[\"task\"],\"edit\":[\"task\"]},\"features\":{\"execute\":[\"create_task\"]}}";
         testPolicy = new ObjectMapper().readTree(policyJson);
 
-        // Create test role request
+        // Create test role request (organization UUID will be set from headers in controller)
         testRoleRequest = new RoleRequest();
         testRoleRequest.setRoleName("Test Role");
-        testRoleRequest.setOrganizationUuid(testOrganizationUuid);
         testRoleRequest.setRoleManagementType(RoleManagementType.CUSTOMER_MANAGED);
         testRoleRequest.setDescription("Test role description");
         testRoleRequest.setPolicy(testPolicy);
@@ -90,6 +89,7 @@ class RoleControllerTest {
         // When & Then
         mockMvc.perform(post("/role")
                 .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testRoleRequest)))
             .andExpect(status().isCreated())
@@ -101,9 +101,23 @@ class RoleControllerTest {
     }
 
     @Test
-    @DisplayName("Should return bad request when creating role without user header")
-    void testCreateRole_MissingUserHeader() throws Exception {
-        // When & Then
+    @DisplayName("Should return bad request when creating role without required headers")
+    void testCreateRole_MissingHeaders() throws Exception {
+        // When & Then - Missing user header
+        mockMvc.perform(post("/role")
+                .header("x-app-org-uuid", testOrganizationUuid)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testRoleRequest)))
+            .andExpect(status().isBadRequest());
+
+        // When & Then - Missing organization header
+        mockMvc.perform(post("/role")
+                .header("x-app-user-uuid", testUserUuid)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testRoleRequest)))
+            .andExpect(status().isBadRequest());
+
+        // When & Then - Missing both headers
         mockMvc.perform(post("/role")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testRoleRequest)))

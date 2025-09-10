@@ -66,7 +66,7 @@ class PermissionServiceTest {
         // Create simple test service
         permissionService = new PermissionService() {
             @Override
-            public CompletableFuture<PermissionCheckResponse> checkPermission(PermissionCheckRequest request) {
+            public CompletableFuture<PermissionCheckResponse> checkPermission(String userUuid, String organizationUuid, PermissionCheckRequest request) {
                 // Simple test implementation
                 if ("task".equals(request.getResource()) && "view".equals(request.getAction())) {
                     return CompletableFuture.completedFuture(
@@ -76,13 +76,25 @@ class PermissionServiceTest {
             }
 
             @Override
-            public CompletableFuture<PermissionCheckResponse> checkPermissionByEndpoint(PermissionCheckRequest request) {
+            public CompletableFuture<PermissionCheckResponse> checkPermissionByEndpoint(String userUuid, String organizationUuid, PermissionCheckRequest request) {
                 // Simple test implementation
                 if ("GET /tasks".equals(request.getEndpoint())) {
                     return CompletableFuture.completedFuture(
                         new PermissionCheckResponse(true, testRoleUuid, "Test Role", "team"));
                 }
                 return CompletableFuture.completedFuture(new PermissionCheckResponse(false));
+            }
+
+            @Override
+            @Deprecated
+            public CompletableFuture<PermissionCheckResponse> checkPermission(PermissionCheckRequest request) {
+                throw new UnsupportedOperationException("Deprecated method");
+            }
+
+            @Override
+            @Deprecated
+            public CompletableFuture<PermissionCheckResponse> checkPermissionByEndpoint(PermissionCheckRequest request) {
+                throw new UnsupportedOperationException("Deprecated method");
             }
         };
     }
@@ -92,13 +104,12 @@ class PermissionServiceTest {
     void testCheckPermission_Success() {
         // Given
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setResource("task");
         request.setAction("view");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        PermissionCheckResponse response = permissionService.checkPermission(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -112,13 +123,12 @@ class PermissionServiceTest {
     void testCheckPermission_Denied() {
         // Given
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setResource("user");
         request.setAction("delete");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        PermissionCheckResponse response = permissionService.checkPermission(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -132,13 +142,12 @@ class PermissionServiceTest {
     void testCheckPermission_NoRoles() {
         // Given
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setResource("other"); // Use different resource to trigger false response
         request.setAction("view");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        PermissionCheckResponse response = permissionService.checkPermission(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -152,12 +161,11 @@ class PermissionServiceTest {
     void testCheckPermissionByEndpoint_Success() {
         // Given
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setEndpoint("GET /tasks");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(request).join();
+        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -170,12 +178,11 @@ class PermissionServiceTest {
     void testCheckPermissionByEndpoint_Denied() {
         // Given
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setEndpoint("DELETE /users/123");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(request).join();
+        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -187,12 +194,11 @@ class PermissionServiceTest {
     void testCheckPermissionByEndpoint_UnknownEndpoint() {
         // Given
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setEndpoint("GET /unknown");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(request).join();
+        PermissionCheckResponse response = permissionService.checkPermissionByEndpoint(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -216,13 +222,12 @@ class PermissionServiceTest {
         );
 
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setResource("any_resource");
         request.setAction("any_action");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        PermissionCheckResponse response = permissionService.checkPermission(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -246,13 +251,12 @@ class PermissionServiceTest {
         UserRole secondUserRole = new UserRole(testUserUuid, secondRoleUuid, testOrganizationUuid, "admin");
 
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setResource("task");
         request.setAction("view");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        PermissionCheckResponse response = permissionService.checkPermission(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -275,13 +279,12 @@ class PermissionServiceTest {
         );
 
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setResource("other"); // Use different resource to trigger false response
         request.setAction("view");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        PermissionCheckResponse response = permissionService.checkPermission(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();
@@ -302,13 +305,12 @@ class PermissionServiceTest {
         );
 
         PermissionCheckRequest request = new PermissionCheckRequest();
-        request.setUserUuid(testUserUuid);
-        request.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from method parameters
         request.setResource("other"); // Use different resource to trigger false response
         request.setAction("view");
 
         // When
-        PermissionCheckResponse response = permissionService.checkPermission(request).join();
+        PermissionCheckResponse response = permissionService.checkPermission(testUserUuid, testOrganizationUuid, request).join();
 
         // Then
         assertThat(response).isNotNull();

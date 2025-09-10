@@ -49,10 +49,8 @@ class PermissionControllerTest {
         testUserUuid = UUID.randomUUID().toString();
         testOrganizationUuid = UUID.randomUUID().toString();
 
-        // Create test request
+        // Create test request (without user/org context - now comes from headers)
         testRequest = new PermissionCheckRequest();
-        testRequest.setUserUuid(testUserUuid);
-        testRequest.setOrganizationUuid(testOrganizationUuid);
         testRequest.setResource("task");
         testRequest.setAction("view");
 
@@ -64,12 +62,14 @@ class PermissionControllerTest {
     @DisplayName("Should check permission successfully")
     void testCheckPermission_Success() throws Exception {
         // Given
-        when(permissionService.checkPermission(eq(testRequest)))
+        when(permissionService.checkPermission(eq(testUserUuid), eq(testOrganizationUuid), eq(testRequest)))
             .thenReturn(CompletableFuture.completedFuture(testResponse));
 
         // When & Then
         mockMvc.perform(post("/permission/check")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(objectMapper.writeValueAsString(testRequest)))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -83,12 +83,41 @@ class PermissionControllerTest {
     @DisplayName("Should return bad request when checking permission with invalid request")
     void testCheckPermission_InvalidRequest() throws Exception {
         // Given - Create invalid request (missing required fields)
-        String invalidJson = "{\"user_uuid\":\"" + testUserUuid + "\"}";
+        String invalidJson = "{}";
 
         // When & Then
         mockMvc.perform(post("/permission/check")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(invalidJson))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Should return bad request when missing required headers")
+    void testCheckPermission_MissingHeaders() throws Exception {
+        // Given - Valid request but missing headers
+        String validJson = "{\"action\":\"view\",\"resource\":\"task\"}";
+
+        // When & Then - Missing user header
+        mockMvc.perform(post("/permission/check")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-org-uuid", testOrganizationUuid)
+                .content(validJson))
+            .andExpect(status().isBadRequest());
+
+        // When & Then - Missing organization header
+        mockMvc.perform(post("/permission/check")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .content(validJson))
+            .andExpect(status().isBadRequest());
+
+        // When & Then - Missing both headers
+        mockMvc.perform(post("/permission/check")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validJson))
             .andExpect(status().isBadRequest());
     }
 
@@ -96,11 +125,13 @@ class PermissionControllerTest {
     @DisplayName("Should return bad request when legacy endpoint receives invalid request")
     void testHasPermission_InvalidRequest() throws Exception {
         // Given - Create invalid request (missing required fields)
-        String invalidJson = "{\"user_uuid\":\"" + testUserUuid + "\"}";
+        String invalidJson = "{}";
 
         // When & Then
         mockMvc.perform(post("/has-permission")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(invalidJson))
             .andExpect(status().isBadRequest());
     }
@@ -109,11 +140,13 @@ class PermissionControllerTest {
     @DisplayName("Should return bad request when endpoint-based check receives invalid request")
     void testCheckPermissionByEndpoint_InvalidRequest() throws Exception {
         // Given - Create invalid request (missing required fields)
-        String invalidJson = "{\"user_uuid\":\"" + testUserUuid + "\"}";
+        String invalidJson = "{}";
 
         // When & Then
         mockMvc.perform(post("/check-permission")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(invalidJson))
             .andExpect(status().isBadRequest());
     }
@@ -189,23 +222,23 @@ class PermissionControllerTest {
     void testCheckPermissionByEndpoint_Success() throws Exception {
         // Given
         EndpointPermissionCheckRequest endpointRequest = new EndpointPermissionCheckRequest();
-        endpointRequest.setUserUuid(testUserUuid);
-        endpointRequest.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from headers
         endpointRequest.setEndpoint("GET /tasks");
         
         // Convert to PermissionCheckRequest for the service (matching controller logic)
         PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
-        serviceRequest.setUserUuid(endpointRequest.getUserUuid());
-        serviceRequest.setOrganizationUuid(endpointRequest.getOrganizationUuid());
+        // userUuid and organizationUuid now come from headers
         serviceRequest.setEndpoint(endpointRequest.getEndpoint());
         serviceRequest.setResourceId(endpointRequest.getResourceId());
         
-        when(permissionService.checkPermissionByEndpoint(eq(serviceRequest)))
+        when(permissionService.checkPermissionByEndpoint(eq(testUserUuid), eq(testOrganizationUuid), eq(serviceRequest)))
             .thenReturn(CompletableFuture.completedFuture(testResponse));
 
         // When & Then
         mockMvc.perform(post("/check-permission")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(objectMapper.writeValueAsString(endpointRequest)))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -218,25 +251,25 @@ class PermissionControllerTest {
     void testCheckPermissionByEndpoint_Denied() throws Exception {
         // Given
         EndpointPermissionCheckRequest endpointRequest = new EndpointPermissionCheckRequest();
-        endpointRequest.setUserUuid(testUserUuid);
-        endpointRequest.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from headers
         endpointRequest.setEndpoint("DELETE /users/123");
         
         // Convert to PermissionCheckRequest for the service (matching controller logic)
         PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
-        serviceRequest.setUserUuid(endpointRequest.getUserUuid());
-        serviceRequest.setOrganizationUuid(endpointRequest.getOrganizationUuid());
+        // userUuid and organizationUuid now come from headers
         serviceRequest.setEndpoint(endpointRequest.getEndpoint());
         serviceRequest.setResourceId(endpointRequest.getResourceId());
         
         PermissionCheckResponse deniedResponse = new PermissionCheckResponse(false, null, null, null);
         
-        when(permissionService.checkPermissionByEndpoint(eq(serviceRequest)))
+        when(permissionService.checkPermissionByEndpoint(eq(testUserUuid), eq(testOrganizationUuid), eq(serviceRequest)))
             .thenReturn(CompletableFuture.completedFuture(deniedResponse));
 
         // When & Then
         mockMvc.perform(post("/check-permission")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(objectMapper.writeValueAsString(endpointRequest)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.has_permission").value(false));
@@ -247,25 +280,25 @@ class PermissionControllerTest {
     void testCheckPermissionByEndpoint_UnknownEndpoint() throws Exception {
         // Given
         EndpointPermissionCheckRequest endpointRequest = new EndpointPermissionCheckRequest();
-        endpointRequest.setUserUuid(testUserUuid);
-        endpointRequest.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from headers
         endpointRequest.setEndpoint("GET /unknown");
         
         // Convert to PermissionCheckRequest for the service (matching controller logic)
         PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
-        serviceRequest.setUserUuid(endpointRequest.getUserUuid());
-        serviceRequest.setOrganizationUuid(endpointRequest.getOrganizationUuid());
+        // userUuid and organizationUuid now come from headers
         serviceRequest.setEndpoint(endpointRequest.getEndpoint());
         serviceRequest.setResourceId(endpointRequest.getResourceId());
         
         PermissionCheckResponse deniedResponse = new PermissionCheckResponse(false, null, null, null);
         
-        when(permissionService.checkPermissionByEndpoint(eq(serviceRequest)))
+        when(permissionService.checkPermissionByEndpoint(eq(testUserUuid), eq(testOrganizationUuid), eq(serviceRequest)))
             .thenReturn(CompletableFuture.completedFuture(deniedResponse));
 
         // When & Then
         mockMvc.perform(post("/check-permission")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(objectMapper.writeValueAsString(endpointRequest)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.has_permission").value(false));
@@ -276,23 +309,23 @@ class PermissionControllerTest {
     void testCheckPermissionByEndpoint_ServiceThrowsException() throws Exception {
         // Given
         EndpointPermissionCheckRequest endpointRequest = new EndpointPermissionCheckRequest();
-        endpointRequest.setUserUuid(testUserUuid);
-        endpointRequest.setOrganizationUuid(testOrganizationUuid);
+        // userUuid and organizationUuid now come from headers
         endpointRequest.setEndpoint("GET /tasks");
         
         // Convert to PermissionCheckRequest for the service (matching controller logic)
         PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
-        serviceRequest.setUserUuid(endpointRequest.getUserUuid());
-        serviceRequest.setOrganizationUuid(endpointRequest.getOrganizationUuid());
+        // userUuid and organizationUuid now come from headers
         serviceRequest.setEndpoint(endpointRequest.getEndpoint());
         serviceRequest.setResourceId(endpointRequest.getResourceId());
         
-        when(permissionService.checkPermissionByEndpoint(eq(serviceRequest)))
+        when(permissionService.checkPermissionByEndpoint(eq(testUserUuid), eq(testOrganizationUuid), eq(serviceRequest)))
             .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Database error")));
 
         // When & Then
         mockMvc.perform(post("/check-permission")
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-app-user-uuid", testUserUuid)
+                .header("x-app-org-uuid", testOrganizationUuid)
                 .content(objectMapper.writeValueAsString(endpointRequest)))
             .andExpect(status().isInternalServerError());
     }
@@ -305,23 +338,21 @@ class PermissionControllerTest {
         
         for (String endpoint : endpoints) {
             EndpointPermissionCheckRequest endpointRequest = new EndpointPermissionCheckRequest();
-            endpointRequest.setUserUuid(testUserUuid);
-            endpointRequest.setOrganizationUuid(testOrganizationUuid);
             endpointRequest.setEndpoint(endpoint);
             
             // Convert to PermissionCheckRequest for the service (matching controller logic)
             PermissionCheckRequest serviceRequest = new PermissionCheckRequest();
-            serviceRequest.setUserUuid(endpointRequest.getUserUuid());
-            serviceRequest.setOrganizationUuid(endpointRequest.getOrganizationUuid());
             serviceRequest.setEndpoint(endpointRequest.getEndpoint());
             serviceRequest.setResourceId(endpointRequest.getResourceId());
             
-            when(permissionService.checkPermissionByEndpoint(eq(serviceRequest)))
+            when(permissionService.checkPermissionByEndpoint(eq(testUserUuid), eq(testOrganizationUuid), eq(serviceRequest)))
                 .thenReturn(CompletableFuture.completedFuture(testResponse));
 
             // Test different HTTP methods
             mockMvc.perform(post("/check-permission")
                     .contentType(MediaType.APPLICATION_JSON)
+                    .header("x-app-user-uuid", testUserUuid)
+                    .header("x-app-org-uuid", testOrganizationUuid)
                     .content(objectMapper.writeValueAsString(endpointRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.has_permission").value(true));

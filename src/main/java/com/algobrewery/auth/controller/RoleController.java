@@ -3,6 +3,8 @@ package com.algobrewery.auth.controller;
 import com.algobrewery.auth.dto.RoleRequest;
 import com.algobrewery.auth.dto.RoleResponse;
 import com.algobrewery.auth.service.RoleService;
+import com.algobrewery.auth.util.HeaderValidationUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,15 +37,21 @@ public class RoleController {
     /**
      * Create a new role.
      * POST /role
+     * Organization UUID is now provided via x-app-org-uuid header.
      */
     @PostMapping
     public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody RoleRequest request,
-                                                  @RequestHeader(value = "x-app-user-uuid", required = false) String userUuid) {
-        if (userUuid == null || userUuid.trim().isEmpty()) {
-            throw new IllegalArgumentException("User UUID header is required");
-        }
+                                                  HttpServletRequest httpRequest) {
+        // Validate required headers
+        HeaderValidationUtil.validateRequiredHeaders(httpRequest);
         
-        logger.info("Creating role: {}", request.getRoleName());
+        String userUuid = HeaderValidationUtil.getUserUuid(httpRequest);
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        
+        // Set organization UUID from header to request
+        request.setOrganizationUuid(organizationUuid);
+        
+        logger.info("Creating role: {} in organization: {}", request.getRoleName(), organizationUuid);
         
         RoleResponse response = roleService.createRole(request, userUuid).join();
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -52,16 +60,22 @@ public class RoleController {
     /**
      * Update an existing role.
      * PUT /role/{role_uuid}
+     * Organization UUID is now provided via x-app-org-uuid header.
      */
     @PutMapping("/{roleUuid}")
     public ResponseEntity<RoleResponse> updateRole(@PathVariable UUID roleUuid,
                                                   @Valid @RequestBody RoleRequest request,
-                                                  @RequestHeader(value = "x-app-user-uuid", required = false) String userUuid) {
-        if (userUuid == null || userUuid.trim().isEmpty()) {
-            throw new IllegalArgumentException("User UUID header is required");
-        }
+                                                  HttpServletRequest httpRequest) {
+        // Validate required headers
+        HeaderValidationUtil.validateRequiredHeaders(httpRequest);
         
-        logger.info("Updating role: {}", roleUuid);
+        String userUuid = HeaderValidationUtil.getUserUuid(httpRequest);
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        
+        // Set organization UUID from header to request
+        request.setOrganizationUuid(organizationUuid);
+        
+        logger.info("Updating role: {} in organization: {}", roleUuid, organizationUuid);
         
         RoleResponse response = roleService.updateRole(roleUuid, request).join();
         return ResponseEntity.ok(response);
@@ -70,15 +84,18 @@ public class RoleController {
     /**
      * Delete a role.
      * DELETE /role/{role_uuid}
+     * Organization UUID is now provided via x-app-org-uuid header.
      */
     @DeleteMapping("/{roleUuid}")
     public ResponseEntity<Void> deleteRole(@PathVariable UUID roleUuid,
-                                          @RequestHeader(value = "x-app-user-uuid", required = false) String userUuid) {
-        if (userUuid == null || userUuid.trim().isEmpty()) {
-            throw new IllegalArgumentException("User UUID header is required");
-        }
+                                          HttpServletRequest httpRequest) {
+        // Validate required headers
+        HeaderValidationUtil.validateRequiredHeaders(httpRequest);
         
-        logger.info("Deleting role: {}", roleUuid);
+        String userUuid = HeaderValidationUtil.getUserUuid(httpRequest);
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        
+        logger.info("Deleting role: {} in organization: {}", roleUuid, organizationUuid);
         
         roleService.deleteRole(roleUuid).join();
         return ResponseEntity.noContent().build();
@@ -98,10 +115,16 @@ public class RoleController {
 
     /**
      * Get roles by organization UUID.
-     * GET /role/organization/{organizationUuid}
+     * GET /role/organization
+     * Organization UUID is now provided via x-app-org-uuid header.
      */
-    @GetMapping("/organization/{organizationUuid}")
-    public ResponseEntity<List<RoleResponse>> getRolesByOrganization(@PathVariable String organizationUuid) {
+    @GetMapping("/organization")
+    public ResponseEntity<List<RoleResponse>> getRolesByOrganization(HttpServletRequest httpRequest) {
+        // Validate required headers
+        HeaderValidationUtil.validateOrganizationHeader(httpRequest);
+        
+        String organizationUuid = HeaderValidationUtil.getOrganizationUuid(httpRequest);
+        
         logger.debug("Getting roles for organization: {}", organizationUuid);
         
         try {
