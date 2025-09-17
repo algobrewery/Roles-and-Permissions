@@ -32,9 +32,9 @@ public class PermissionServiceImpl implements PermissionService {
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public PermissionServiceImpl(UserRoleRepository userRoleRepository, 
-                               RoleRepository roleRepository, 
-                               ObjectMapper objectMapper) {
+    public PermissionServiceImpl(UserRoleRepository userRoleRepository,
+                                 RoleRepository roleRepository,
+                                 ObjectMapper objectMapper) {
         this.userRoleRepository = userRoleRepository;
         this.roleRepository = roleRepository;
         this.objectMapper = objectMapper;
@@ -47,38 +47,38 @@ public class PermissionServiceImpl implements PermissionService {
     @Cacheable(value = "permissions", key = "#userUuid + '_' + #organizationUuid + '_' + #request.action + '_' + #request.resource")
     public CompletableFuture<PermissionCheckResponse> checkPermission(String userUuid, String organizationUuid, PermissionCheckRequest request) {
         return CompletableFuture.supplyAsync(() -> {
-            logger.debug("Checking permission for user: {}, action: {}, resource: {}", 
-                        userUuid, request.getAction(), request.getResource());
+            logger.debug("Checking permission for user: {}, action: {}, resource: {}",
+                    userUuid, request.getAction(), request.getResource());
 
             try {
                 // Get user's roles in the organization
                 List<UserRole> userRoles = userRoleRepository.findByUserUuidAndOrganizationUuid(
-                    userUuid, organizationUuid);
+                        userUuid, organizationUuid);
 
                 if (userRoles.isEmpty()) {
-                    logger.debug("No roles found for user: {} in organization: {}", 
-                               userUuid, organizationUuid);
+                    logger.debug("No roles found for user: {} in organization: {}",
+                            userUuid, organizationUuid);
                     return new PermissionCheckResponse(false);
                 }
 
                 // Check each role for the required permission
                 for (UserRole userRole : userRoles) {
                     Optional<Role> roleOpt = roleRepository.findByRoleUuid(
-                        java.util.UUID.fromString(userRole.getRoleUuid()));
-                    
+                            java.util.UUID.fromString(userRole.getRoleUuid()));
+
                     if (roleOpt.isPresent()) {
                         Role role = roleOpt.get();
                         if (hasPermission(role, request.getAction(), request.getResource())) {
-                            logger.debug("Permission granted for user: {} with role: {}", 
-                                       userUuid, role.getRoleName());
-                            return new PermissionCheckResponse(true, role.getRoleUuid().toString(), 
-                                                             role.getRoleName(), "team");
+                            logger.debug("Permission granted for user: {} with role: {}",
+                                    userUuid, role.getRoleName());
+                            return new PermissionCheckResponse(true, role.getRoleUuid().toString(),
+                                    role.getRoleName(), "team");
                         }
                     }
                 }
 
-                logger.debug("Permission denied for user: {} action: {} resource: {}", 
-                            userUuid, request.getAction(), request.getResource());
+                logger.debug("Permission denied for user: {} action: {} resource: {}",
+                        userUuid, request.getAction(), request.getResource());
                 return new PermissionCheckResponse(false);
 
             } catch (Exception e) {
@@ -108,8 +108,8 @@ public class PermissionServiceImpl implements PermissionService {
     @Cacheable(value = "permissions", key = "#userUuid + '_' + #organizationUuid + '_' + #request.endpoint")
     public CompletableFuture<PermissionCheckResponse> checkPermissionByEndpoint(String userUuid, String organizationUuid, PermissionCheckRequest request) {
         return CompletableFuture.supplyAsync(() -> {
-            logger.debug("Checking permission by endpoint for user: {}, endpoint: {}", 
-                        userUuid, request.getEndpoint());
+            logger.debug("Checking permission by endpoint for user: {}, endpoint: {}",
+                    userUuid, request.getEndpoint());
 
             // Map endpoint to action and resource
             EndpointMapping mapping = mapEndpointToActionResource(request.getEndpoint());
@@ -147,7 +147,7 @@ public class PermissionServiceImpl implements PermissionService {
     private boolean hasPermission(Role role, String action, String resource) {
         try {
             JsonNode policy = role.getPolicy();
-            
+
             // Check data permissions
             if (policy.has("data")) {
                 JsonNode dataNode = policy.get("data");
@@ -200,7 +200,7 @@ public class PermissionServiceImpl implements PermissionService {
         } else if (endpoint.startsWith("DELETE /users/")) {
             return new EndpointMapping("execute", "delete_user");
         }
-        
+
         // Task APIs
         else if (endpoint.startsWith("GET /tasks")) {
             return new EndpointMapping("view", "task");
@@ -211,14 +211,14 @@ public class PermissionServiceImpl implements PermissionService {
         } else if (endpoint.startsWith("DELETE /tasks/")) {
             return new EndpointMapping("execute", "delete_task");
         }
-        
+
         // Organization APIs
         else if (endpoint.startsWith("GET /organization")) {
             return new EndpointMapping("view", "organization");
         } else if (endpoint.startsWith("PUT /organization") || endpoint.startsWith("PATCH /organization")) {
             return new EndpointMapping("edit", "organization");
         }
-        
+
         // Client APIs
         else if (endpoint.startsWith("GET /clients")) {
             return new EndpointMapping("view", "client");
@@ -228,6 +228,17 @@ public class PermissionServiceImpl implements PermissionService {
             return new EndpointMapping("edit", "client");
         } else if (endpoint.startsWith("DELETE /clients/")) {
             return new EndpointMapping("execute", "delete_client");
+        }
+
+        // Comment APIs
+        else if (endpoint.startsWith("GET /comment")) {
+            return new EndpointMapping("view", "comment");
+        } else if (endpoint.startsWith("POST /comment")) {
+            return new EndpointMapping("execute", "create_comment");
+        } else if (endpoint.startsWith("PUT /comment/") || endpoint.startsWith("PATCH /comment/")) {
+            return new EndpointMapping("edit", "comment");
+        } else if (endpoint.startsWith("DELETE /comment/")) {
+            return new EndpointMapping("execute", "delete_comment");
         }
 
         return null;
